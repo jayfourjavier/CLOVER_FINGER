@@ -4,11 +4,12 @@
 Adafruit_Fingerprint fingerprint = Adafruit_Fingerprint(&mySerial);
 
 enum Mode { ID_MODE, ENROLL_MODE, DELETE_ID_MODE, DELETE_ALL_MODE };
-Mode currentMode = ID_MODE;
+Mode currentMode = DELETE_ALL_MODE;
 uint8_t id;
-const uint8_t adminId = 1;
+uint8_t fingerprintId = 0;
+const uint8_t adminId = 1; 
 
-uint8_t getFingerprintID() {
+void getFingerprintID(uint8_t & _gotId) {
   uint8_t p = fingerprint.getImage();
   switch (p) {
     case FINGERPRINT_OK:
@@ -16,20 +17,19 @@ uint8_t getFingerprintID() {
       break;
     case FINGERPRINT_NOFINGER:
       Serial.println("No finger detected");
-      return p;
+      return;
     case FINGERPRINT_PACKETRECIEVEERR:
       Serial.println("Communication error");
-      return p;
+      return;
     case FINGERPRINT_IMAGEFAIL:
       Serial.println("Imaging error");
-      return p;
+      return;
     default:
       Serial.println("Unknown error");
-      return p;
+      return;
   }
 
   // OK success!
-
   p = fingerprint.image2Tz();
   switch (p) {
     case FINGERPRINT_OK:
@@ -37,19 +37,17 @@ uint8_t getFingerprintID() {
       break;
     case FINGERPRINT_IMAGEMESS:
       Serial.println("Image too messy");
-      return p;
+      return;
     case FINGERPRINT_PACKETRECIEVEERR:
       Serial.println("Communication error");
-      return p;
+      return;
     case FINGERPRINT_FEATUREFAIL:
-      Serial.println("Could not find fingerprint features");
-      return p;
     case FINGERPRINT_INVALIDIMAGE:
       Serial.println("Could not find fingerprint features");
-      return p;
+      return;
     default:
       Serial.println("Unknown error");
-      return p;
+      return;
   }
 
   // OK converted!
@@ -58,25 +56,24 @@ uint8_t getFingerprintID() {
     Serial.println("Found a print match!");
   } else if (p == FINGERPRINT_PACKETRECIEVEERR) {
     Serial.println("Communication error");
-    return p;
+    return;
   } else if (p == FINGERPRINT_NOTFOUND) {
     Serial.println("Did not find a match");
-    return p;
+    return;
   } else {
     Serial.println("Unknown error");
-    return p;
+    return;
   }
 
-  // found a match!
+  // Found a match!
   Serial.print("Found ID #"); 
   Serial.print(fingerprint.fingerID);
   Serial.print(" with confidence of "); 
   Serial.println(fingerprint.confidence);
   
-  //##################################
-  return fingerprint.fingerID;
-  //##################################
+  _gotId = fingerprint.fingerID; // Update ID by reference
 }
+
 
 // returns -1 if failed, otherwise returns ID #
 int getFingerprintIDez() {
@@ -321,6 +318,64 @@ void setupFingerPrint (){
   }
 }
 
+void getFingerId(uint8_t &_id) {
+  getFingerprintID(_id);
+}
+
+bool isAdmin() {
+  getFingerId(fingerprintId);
+  bool _adminDetected = (fingerprintId == adminId);
+  _adminDetected && Serial.println("HELLO ADMIN");  // Print result for debugging
+  return _adminDetected;
+}
+
+void enrollAdmin(uint8_t _adminId){
+  Serial.print("Enrolling admin as # ");
+  Serial.println(_adminId);
+  enrollFingerprint(_adminId);
+}
+
+void eraseAllFingerprint (){
+  fingerprint.emptyDatabase();
+}
+
+void processMode() {
+  Serial.print("Current Mode: ");
+  
+  if (currentMode == ID_MODE) {
+    Serial.println("ID_MODE");
+    fingerprintId = 0;
+    getFingerId(fingerprintId);
+    Serial.print("Detected Fingerprint ID: ");
+    Serial.println(fingerprintId);
+  } 
+  else if (currentMode == DELETE_ALL_MODE) {
+    Serial.println("DELETE_ALL_MODE");
+    Serial.println("Deleting all fingerprints...");
+
+    eraseAllFingerprint();
+    currentMode = ID_MODE;
+    // Call delete all function here
+  } 
+  else if (currentMode == DELETE_ID_MODE) {
+    Serial.println("DELETE_ID_MODE");
+    Serial.print("Deleting Fingerprint ID: ");
+    Serial.println(fingerprintId);
+    // Call delete specific ID function here
+  } 
+  else if (currentMode == ENROLL_MODE) {
+    Serial.println("ENROLL_MODE");
+    Serial.print("Enrolling Fingerprint ID: ");
+    Serial.println(fingerprintId);
+    // Call enroll function here
+  } 
+  else {
+    Serial.println("UNKNOWN_MODE");
+  }
+}
+
+
+
 
 void setup() {
   Serial.begin(9600);
@@ -328,12 +383,17 @@ void setup() {
   Serial.println("\n\nAdafruit finger detect test");
 
   setupFingerPrint();
-  deleteFingerprint(10);
-  enrollFingerprint(13);
+  //deleteFingerprint(13);
+  //enrollFingerprint(1);
+  enrollAdmin(adminId);
   fingerLed(true);
 }
 
 void loop() {
-  getFingerprintID();
+  //getFingerId(fingerprintId);
+  //getFingerprintID();
   delay(1000);            //don't ned to run this at full speed.
+
+  //isAdmin();
+  processMode();
 }
