@@ -1,4 +1,4 @@
-# Arduino Mega AS608 Fingerprint Sensor Project
+# Arduino Mega AS608 Fingerprint Sensor 
 
 This project integrates an AS608 fingerprint sensor with an Arduino Mega 2560 for biometric authentication.
 
